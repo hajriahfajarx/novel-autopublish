@@ -1,0 +1,60 @@
+name: Daily chapter auto-publish
+
+# A single daily publish window (20:00-21:00 WIB) with 4 small cron triggers
+# spread across it (every 15 min). A dependency-free pre-check
+# (scripts/check-slot.mjs) picks exactly one per day via a deterministic
+# hash of today's date -- the other 3 exit in a couple of seconds without
+# installing anything. See scripts/check-slot.mjs for the slot map; it must
+# stay in sync with the cron entries below.
+on:
+  schedule:
+    - cron: "0 13 * * *"
+    - cron: "15 13 * * *"
+    - cron: "30 13 * * *"
+    - cron: "45 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check-slot:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+          PUBLISH_TIMEZONE: ${{ secrets.PUBLISH_TIMEZONE }}
+        run: node scripts/check-slot.mjs
+
+  publish:
+    needs: check-slot
+    if: needs.check-slot.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run daily chapter pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          BLOG_ID: ${{ secrets.BLOG_ID }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          SERIES_LABEL: ${{ secrets.SERIES_LABEL }}
+          PUBLISH_TIMEZONE: ${{ secrets.PUBLISH_TIMEZONE }}
+        run: npm run run
