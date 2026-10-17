@@ -1,17 +1,19 @@
 name: Daily chapter auto-publish
 
-# A single daily publish window (20:00-21:00 WIB) with 4 small cron triggers
-# spread across it (every 15 min). A dependency-free pre-check
-# (scripts/check-slot.mjs) picks exactly one per day via a deterministic
-# hash of today's date -- the other 3 exit in a couple of seconds without
-# installing anything. See scripts/check-slot.mjs for the slot map; it must
-# stay in sync with the cron entries below.
+# A single daily publish window (21:00-22:00 WIB -- offset from the tech
+# blog sibling project's 19:00-20:30 WIB evening window so they don't
+# overlap and compete for the same shared Gemini API key's per-minute rate
+# limit) with 4 small cron triggers spread across it (every 15 min). A
+# dependency-free pre-check (scripts/check-slot.mjs) picks exactly one per
+# day via a deterministic hash of today's date -- the other 3 exit in a
+# couple of seconds without installing anything. See scripts/check-slot.mjs
+# for the slot map; it must stay in sync with the cron entries below.
 on:
   schedule:
-    - cron: "0 13 * * *"
-    - cron: "15 13 * * *"
-    - cron: "30 13 * * *"
-    - cron: "45 13 * * *"
+    - cron: "0 14 * * *"
+    - cron: "15 14 * * *"
+    - cron: "30 14 * * *"
+    - cron: "45 14 * * *"
   workflow_dispatch: {}
 
 jobs:

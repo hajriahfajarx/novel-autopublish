@@ -3,8 +3,11 @@
 // "not my turn" run costs only a few seconds of billable runner time instead
 // of sleeping in the runner.
 //
-// How it works: there's one daily publish window (20:00-21:00 WIB) with 4
-// fixed cron triggers spread across it (every 15 min). A deterministic hash
+// How it works: there's one daily publish window (21:00-22:00 WIB -- offset
+// by an hour from the tech blog sibling project's 19:00-20:30 WIB evening
+// window on purpose, so the two don't overlap and compete for the same
+// shared Gemini API key's per-minute rate limit) with 4 fixed cron triggers
+// spread across it (every 15 min). A deterministic hash
 // of today's date picks exactly one of those 4 slots per day; every other
 // trigger exits in a couple of seconds without installing anything. This
 // still uses multiple redundant triggers per window (rather than a single
@@ -18,10 +21,10 @@ import { appendFileSync } from "node:fs";
 
 // Must match the `schedule:` entries in .github/workflows/daily-post.yml.
 const CRON_TO_SLOT = {
-  "0 13 * * *": 0, // 20:00 WIB
-  "15 13 * * *": 1, // 20:15 WIB
-  "30 13 * * *": 2, // 20:30 WIB
-  "45 13 * * *": 3, // 20:45 WIB
+  "0 14 * * *": 0, // 21:00 WIB
+  "15 14 * * *": 1, // 21:15 WIB
+  "30 14 * * *": 2, // 21:30 WIB
+  "45 14 * * *": 3, // 21:45 WIB
 };
 const SLOT_COUNT = Object.keys(CRON_TO_SLOT).length;
 
