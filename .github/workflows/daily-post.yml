@@ -10,10 +10,15 @@ name: Daily chapter auto-publish
 # for the slot map; it must stay in sync with the cron entries below.
 on:
   schedule:
-    - cron: "0 14 * * *"
-    - cron: "15 14 * * *"
-    - cron: "30 14 * * *"
-    - cron: "45 14 * * *"
+    # COMPENSATED: configured 12:22-13:37 UTC for a real-world landing
+    # around 22:00-23:30 WIB (GitHub was observed delivering this account's
+    # triggers ~2.5-3h late). See scripts/check-slot.mjs for details.
+    - cron: "22 12 * * *"
+    - cron: "37 12 * * *"
+    - cron: "52 12 * * *"
+    - cron: "7 13 * * *"
+    - cron: "22 13 * * *"
+    - cron: "37 13 * * *"
   workflow_dispatch: {}
 
 jobs:

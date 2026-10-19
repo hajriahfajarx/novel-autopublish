@@ -1,12 +1,12 @@
 # novel-autopublish
 
-Daily serialized-fiction auto-publish pipeline for a Blogger blog: each day writes and publishes the **next chapter** of an ongoing story (life journey, relationship dynamics, implicit/tasteful romance, centered on one protagonist who grows alongside a recurring cast) — not an independent topic each time. Runs **1x/day** via GitHub Actions, landing at a randomized time in a ~21:00–22:00 WIB window.
+Daily serialized-fiction auto-publish pipeline for a Blogger blog: each day writes and publishes the **next chapter** of an ongoing story (life journey, relationship dynamics, implicit/tasteful romance, centered on one protagonist who grows alongside a recurring cast) — not an independent topic each time. Runs **1x/day** via GitHub Actions, targeting a randomized real-world landing time around ~22:00–23:30 WIB (configured cron times are shifted earlier to compensate for observed GitHub scheduling delay — see `scripts/check-slot.mjs`).
 
 This is a sibling project to `hajriahfajar-autopublish` (the tech/lifestyle blog pipeline) — same overall shape (local setup UI, zero-cost GitHub Actions slot-gating, Gemini retry/model-fallback), but with fully separate credentials (new Google account, new Gemini key, new Blogger blog, new Sheet) and a fundamentally different content model: **continuity, not rotation**.
 
 ## How it works
 
-1. A single daily window (21:00–22:00 WIB) fires 4 small cron triggers (every 15 min). A dependency-free pre-check (`scripts/check-slot.mjs`) picks exactly one per day via a deterministic hash of today's date — the other 3 exit in a few seconds without installing anything.
+1. A single daily window (configured 12:22–13:37 UTC, compensated for observed delay to land around 22:00–23:30 WIB) fires 6 small cron triggers (every 15 min, uncommon minute offsets). A dependency-free pre-check (`scripts/check-slot.mjs`) picks exactly one per day via a deterministic hash of today's date — the others exit in a few seconds without installing anything.
 2. Reads the **Story** tab of the Google Sheet: the last few chapters' synopses (for direct continuity) and the latest chapter number. Reads the **Characters** tab in full (the "character bible").
 3. Asks Gemini to write the next chapter — continuing directly from the most recent chapter(s), staying consistent with every established character, following `prompts/novel-style-guide.md` (casual Indonesian, implicit/tasteful romance only — never explicit, one protagonist, chapter-ending hooks). If the Story tab is empty, this is chapter 1 and Gemini invents an original premise instead.
 4. Validates the result (non-empty title/synopsis, minimum word count, no leaked template/instruction text). Repairs via a fix-request loop (up to 3 attempts) if something's wrong; if it still fails, logs a `failed` row and stops without publishing.

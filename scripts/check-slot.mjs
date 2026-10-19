@@ -3,28 +3,37 @@
 // "not my turn" run costs only a few seconds of billable runner time instead
 // of sleeping in the runner.
 //
-// How it works: there's one daily publish window (21:00-22:00 WIB -- offset
-// by an hour from the tech blog sibling project's 19:00-20:30 WIB evening
-// window on purpose, so the two don't overlap and compete for the same
-// shared Gemini API key's per-minute rate limit) with 4 fixed cron triggers
-// spread across it (every 15 min). A deterministic hash
-// of today's date picks exactly one of those 4 slots per day; every other
-// trigger exits in a couple of seconds without installing anything. This
-// still uses multiple redundant triggers per window (rather than a single
-// cron + in-runner sleep) because GitHub's own schedule delivery can be
-// unreliable/delayed on its own -- having several chances per window makes
-// it more likely at least one fires reasonably on time, independent of
+// How it works: there's one daily publish window, targeting a real-world
+// landing of 22:00-23:30 WIB -- offset from the tech blog sibling project's
+// windows on purpose, so they don't overlap and compete for the same shared
+// Gemini API key's per-minute rate limit -- with 6 fixed cron triggers
+// spread across it (every 15 min, uncommon minute offsets). A deterministic
+// hash of today's date picks exactly one of those slots per day; every
+// other trigger exits in a couple of seconds without installing anything.
+// This still uses multiple redundant triggers per window (rather than a
+// single cron + in-runner sleep) because GitHub's own schedule delivery was
+// observed to be delayed by ~2.5-3h in practice (see the compensation note
+// on CRON_TO_SLOT below) -- having several chances per window makes it more
+// likely at least one fires reasonably close to the target, independent of
 // Actions billing (this repo is public anyway, so billing isn't the
 // motivation here, just delivery reliability).
 import { createHash } from "node:crypto";
 import { appendFileSync } from "node:fs";
 
 // Must match the `schedule:` entries in .github/workflows/daily-post.yml.
+//
+// COMPENSATED: configured 12:22-13:37 UTC for a real-world landing around
+// 15:00-16:30 UTC = 22:00-23:30 WIB. Observed in practice: GitHub was
+// delivering this account's scheduled triggers ~2.5-3h late (likely queuing
+// congestion on common :00/:15/:30/:45 marks), so this is shifted earlier +
+// uses uncommon minute offsets. Re-tune if the delay pattern changes.
 const CRON_TO_SLOT = {
-  "0 14 * * *": 0, // 21:00 WIB
-  "15 14 * * *": 1, // 21:15 WIB
-  "30 14 * * *": 2, // 21:30 WIB
-  "45 14 * * *": 3, // 21:45 WIB
+  "22 12 * * *": 0,
+  "37 12 * * *": 1,
+  "52 12 * * *": 2,
+  "7 13 * * *": 3,
+  "22 13 * * *": 4,
+  "37 13 * * *": 5,
 };
 const SLOT_COUNT = Object.keys(CRON_TO_SLOT).length;
 
