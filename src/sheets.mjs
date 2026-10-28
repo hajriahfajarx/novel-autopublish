@@ -2,7 +2,7 @@ import { google } from "googleapis";
 
 const STORY_SHEET = "Story";
 const CHARACTERS_SHEET = "Characters";
-const STORY_HEADER = ["date", "status", "chapter_number", "title", "synopsis", "post_url", "reason"];
+const STORY_HEADER = ["date", "status", "chapter_number", "title", "synopsis", "arc_stage", "character_ages", "post_url", "reason", "content_html"];
 const CHARACTERS_HEADER = ["name", "description", "status_notes", "first_appeared_chapter", "last_updated_chapter"];
 
 async function ensureSheetExists(sheets, spreadsheetId, title) {
@@ -24,12 +24,12 @@ export async function ensureHeaderRows(auth, sheetId) {
 
   const { data: storyData } = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${STORY_SHEET}!A1:G1`,
+    range: `${STORY_SHEET}!A1:J1`,
   });
   if (!storyData.values?.[0] || storyData.values[0].join("|") !== STORY_HEADER.join("|")) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${STORY_SHEET}!A1:G1`,
+      range: `${STORY_SHEET}!A1:J1`,
       valueInputOption: "RAW",
       requestBody: { values: [STORY_HEADER] },
     });
@@ -49,21 +49,41 @@ export async function ensureHeaderRows(auth, sheetId) {
   }
 }
 
+function storyRowToValues(row) {
+  return [
+    row.date,
+    row.status,
+    row.chapterNumber,
+    row.title,
+    row.synopsis || "",
+    row.arcStage || "",
+    row.characterAges || "",
+    row.postUrl || "",
+    row.reason || "",
+    row.contentHtml || "",
+  ];
+}
+
 export async function readStoryLog(auth, sheetId) {
   const sheets = google.sheets({ version: "v4", auth });
   const { data } = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${STORY_SHEET}!A2:G`,
+    range: `${STORY_SHEET}!A2:J`,
   });
   const rows = data.values || [];
-  return rows.map((row) => ({
+  return rows.map((row, i) => ({
+    // 1-based sheet row number (row 1 is the header, data starts at row 2).
+    rowIndex: i + 2,
     date: row[0] || "",
     status: row[1] || "",
     chapterNumber: Number(row[2]) || 0,
     title: row[3] || "",
     synopsis: row[4] || "",
-    postUrl: row[5] || "",
-    reason: row[6] || "",
+    arcStage: row[5] || "",
+    characterAges: row[6] || "",
+    postUrl: row[7] || "",
+    reason: row[8] || "",
+    contentHtml: row[9] || "",
   }));
 }
 
@@ -71,20 +91,26 @@ export async function appendStoryRow(auth, sheetId, row) {
   const sheets = google.sheets({ version: "v4", auth });
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: `${STORY_SHEET}!A:G`,
+    range: `${STORY_SHEET}!A:J`,
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
-    requestBody: {
-      values: [[
-        row.date,
-        row.status,
-        row.chapterNumber,
-        row.title,
-        row.synopsis || "",
-        row.postUrl || "",
-        row.reason || "",
-      ]],
-    },
+    requestBody: { values: [storyRowToValues(row)] },
+  });
+}
+
+/**
+ * Updates an existing Story row in place (identified by its absolute sheet
+ * row number, from readStoryLog's `rowIndex`) instead of appending a new one
+ * -- used to flip a queued `ready` chapter to `done` once it's actually
+ * published, without disturbing any other row.
+ */
+export async function updateStoryRow(auth, sheetId, rowIndex, row) {
+  const sheets = google.sheets({ version: "v4", auth });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${STORY_SHEET}!A${rowIndex}:J${rowIndex}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [storyRowToValues(row)] },
   });
 }
 
