@@ -17,10 +17,14 @@ function dateStringInTz(date, timeZone) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+// Only "published" blocks the rest of today's slots -- a "failed" row (e.g.
+// a transient Gemini 503 overload spell) must NOT block retries, otherwise
+// a single bad slot wastes the whole day's redundancy and no chapter goes
+// out at all that day.
 function alreadyHandledToday(storyLog, timeZone) {
   const today = dateStringInTz(new Date(), timeZone);
   return storyLog.some((row) => {
-    if (!row.date || (row.status !== "published" && row.status !== "failed")) return false;
+    if (!row.date || row.status !== "published") return false;
     const rowDate = new Date(row.date);
     if (Number.isNaN(rowDate.valueOf())) return false;
     return dateStringInTz(rowDate, timeZone) === today;
@@ -41,7 +45,7 @@ async function main() {
   if (process.env.FORCE_RUN === "true") {
     console.log("FORCE_RUN=true — skipping the already-handled-today guard (manual test only, never set this in the scheduled workflow).");
   } else if (alreadyHandledToday(storyLog, config.timezone)) {
-    console.log("Today already has a published/failed row in the log — skipping (prevents double-posting if slots ever overlap).");
+    console.log("Today already has a published row in the log — skipping (prevents double-posting if slots ever overlap).");
     return;
   }
 
@@ -100,7 +104,7 @@ async function main() {
     const characterLines = parsed.meta.characterUpdates.length
       ? parsed.meta.characterUpdates.map((c) => `- ${c.name} | ${c.description} | ${c.statusNotes}`).join("\n")
       : "- Tidak ada update";
-    const reconstructed = `# METADATA\n\nJudul Bab: ${parsed.meta.title}\nSinopsis Bab Ini: ${parsed.meta.synopsis}\nUpdate Karakter:\n${characterLines}\n\n# KONTEN BAB\n\n\`\`\`html\n${parsed.html}\n\`\`\``;
+    const reconstructed = `# METADATA\n\nJudul Bab: ${parsed.meta.title}\nSinopsis Bab Ini: ${parsed.meta.synopsis}\nTahap Cerita: ${parsed.meta.arcStage}\nUsia Saat Ini: ${parsed.meta.characterAges}\nUpdate Karakter:\n${characterLines}\n\n# KONTEN BAB\n\n\`\`\`html\n${parsed.html}\n\`\`\``;
     const rawFixed = await fixChapterResponse(ai, config.gemini.models, reconstructed, result.issues);
     try {
       parsed = parseChapterResponse(rawFixed);
@@ -144,6 +148,8 @@ async function main() {
     chapterNumber: nextChapterNumber,
     title: parsed.meta.title,
     synopsis: parsed.meta.synopsis,
+    arcStage: parsed.meta.arcStage,
+    characterAges: parsed.meta.characterAges,
     postUrl: published.url,
   });
 
